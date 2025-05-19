@@ -146,36 +146,40 @@ module.exports = function(RED) {
                     const { column, value } = detectTypeAndColumn(v.value, node.schema);
                     // Prepare columns and values for SQL
                     let columns = ['time', 'measurement', 'field', column, 'unit'];
-                    let params = ['now()', '$1', '$2', '$3', '$4'];
                     let paramValues = [measurement, v.field, value, null];
 
-                    // Add fixed tags columns
+                    // Add fixed tags columns (always all, missing as null)
                     if (node.schema === 'industrial') {
+                        // Always add all industrial tags in correct order
                         columns.splice(1, 0, 'org', 'location', 'building', 'area', 'device');
-                        params.splice(1, 0, '$5', '$6', '$7', '$8', '$9');
                         paramValues.splice(1, 0,
-                            tags.org || null,
-                            tags.location || null,
-                            tags.building || null,
-                            tags.area || null,
-                            tags.device || null
+                            tags.org !== undefined ? tags.org : null,
+                            tags.location !== undefined ? tags.location : null,
+                            tags.building !== undefined ? tags.building : null,
+                            tags.area !== undefined ? tags.area : null,
+                            tags.device !== undefined ? tags.device : null
                         );
                     } else {
+                        // Always add all home tags in correct order
                         columns.splice(1, 0, 'name', 'location', 'building', 'floor', 'device');
-                        params.splice(1, 0, '$5', '$6', '$7', '$8', '$9');
                         paramValues.splice(1, 0,
-                            tags.name || null,
-                            tags.location || null,
-                            tags.building || null,
-                            tags.floor || null,
-                            tags.device || null
+                            tags.name !== undefined ? tags.name : null,
+                            tags.location !== undefined ? tags.location : null,
+                            tags.building !== undefined ? tags.building : null,
+                            tags.floor !== undefined ? tags.floor : null,
+                            tags.device !== undefined ? tags.device : null
                         );
                     }
 
                     // Add jsonb tags only once
                     columns.push('tags');
-                    params.push(`$${paramValues.length + 1}`);
                     paramValues.push(JSON.stringify(jsonb));
+
+                    // Dynamically generate parameter placeholders
+                    const params = ['now()'];
+                    for (let i = 1; i <= paramValues.length; i++) {
+                        params.push(`$${i}`);
+                    }
 
                     // Build SQL
                     const sql = `INSERT INTO measurements (${columns.join(',')}) VALUES (${params.join(',')})`;
