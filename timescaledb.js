@@ -144,15 +144,20 @@ module.exports = function(RED) {
                 let results = [];
                 for (const v of values) {
                     const { column, value } = detectTypeAndColumn(v.value, node.schema);
-                    // Prepare columns and values for SQL
-                    let columns = ['time', 'measurement', 'field', column, 'unit'];
-                    let paramValues = [measurement, v.field, value, null];
 
-                    // Add fixed tags columns (always all, missing as null)
+                    // Prepare columns and values for SQL
+                    let columns = [];
+                    let paramValues = [];
+
+                    // 1. time (timestamp)
+                    columns.push('time');
+                    let ts = msg.timestamp ? new Date(msg.timestamp) : new Date();
+                    paramValues.push(ts);
+
+                    // 2. fixed tags podle schématu (vždy ve stejném pořadí)
                     if (node.schema === 'industrial') {
-                        // Always add all industrial tags in correct order
-                        columns.splice(1, 0, 'org', 'location', 'building', 'area', 'device');
-                        paramValues.splice(1, 0,
+                        columns.push('org', 'location', 'building', 'area', 'device');
+                        paramValues.push(
                             tags.org !== undefined ? tags.org : null,
                             tags.location !== undefined ? tags.location : null,
                             tags.building !== undefined ? tags.building : null,
@@ -160,9 +165,8 @@ module.exports = function(RED) {
                             tags.device !== undefined ? tags.device : null
                         );
                     } else {
-                        // Always add all home tags in correct order
-                        columns.splice(1, 0, 'name', 'location', 'building', 'floor', 'device');
-                        paramValues.splice(1, 0,
+                        columns.push('name', 'location', 'building', 'floor', 'device');
+                        paramValues.push(
                             tags.name !== undefined ? tags.name : null,
                             tags.location !== undefined ? tags.location : null,
                             tags.building !== undefined ? tags.building : null,
@@ -171,12 +175,25 @@ module.exports = function(RED) {
                         );
                     }
 
-                    // Add jsonb tags only once
+                    // 3. measurement, field
+                    columns.push('measurement', 'field');
+                    paramValues.push(measurement, v.field);
+
+                    // 4. hodnotová kolona (pouze jedna podle typu)
+                    columns.push(column);
+                    paramValues.push(value);
+
+                    // 5. unit (z msg.unit, node.unit, nebo null)
+                    let unit = msg.unit !== undefined ? msg.unit : (node.unit !== undefined ? node.unit : null);
+                    columns.push('unit');
+                    paramValues.push(unit);
+
+                    // 6. tags (jsonb)
                     columns.push('tags');
                     paramValues.push(JSON.stringify(jsonb));
 
                     // Dynamically generate parameter placeholders
-                    const params = ['now()'];
+                    const params = [];
                     for (let i = 1; i <= paramValues.length; i++) {
                         params.push(`$${i}`);
                     }
