@@ -1,0 +1,128 @@
+<script type="text/javascript">
+    RED.nodes.registerType('timescaledb-config', {
+        category: 'config',
+        defaults: {
+            host: { value: '', required: true },
+            port: { value: 5432, required: true },
+            database: { value: '', required: true },
+            ssl: { value: false }
+        },
+        credentials: {
+            user: { type: 'text' },
+            password: { type: 'password' }
+        },
+        label: function() {
+            return this.host + ':' + this.port + '/' + this.database;
+        }
+    });
+
+    RED.nodes.registerType('timescaledb', {
+        category: 'storage',
+        color: '#a6bbcf',
+        defaults: {
+            name: { value: '' },
+            server: { type: 'timescaledb-config', required: true },
+            schema: { value: 'industrial', required: true },
+            payloadType: { value: 'json', required: true },
+            measurement: { value: '' },
+            field: { value: '' },
+            fixedTags: { value: {} }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'db.png',
+        label: function() {
+            return this.name || 'timescaledb';
+        }
+    });
+</script>
+
+<!-- Config node edit dialog -->
+<script type="text/html" data-template-name="timescaledb-config">
+    <div class="form-row">
+        <label for="node-config-input-host"><i class="fa fa-server"></i> Host</label>
+        <input type="text" id="node-config-input-host">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-port"><i class="fa fa-plug"></i> Port</label>
+        <input type="number" id="node-config-input-port">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-database"><i class="fa fa-database"></i> Database</label>
+        <input type="text" id="node-config-input-database">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-user"><i class="fa fa-user"></i> User</label>
+        <input type="text" id="node-config-input-user">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-password"><i class="fa fa-lock"></i> Password</label>
+        <input type="password" id="node-config-input-password">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-ssl"><i class="fa fa-shield"></i> SSL</label>
+        <input type="checkbox" id="node-config-input-ssl">
+    </div>
+</script>
+
+<!-- Main node edit dialog -->
+<script type="text/html" data-template-name="timescaledb">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-server"><i class="fa fa-server"></i> Server</label>
+        <input type="text" id="node-input-server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-schema"><i class="fa fa-cube"></i> Schema</label>
+        <select id="node-input-schema">
+            <option value="industrial">Industrial</option>
+            <option value="home">Home</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-payloadType"><i class="fa fa-code"></i> Payload Type</label>
+        <select id="node-input-payloadType">
+            <option value="naked">Naked</option>
+            <option value="json">JSON Object</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-measurement"><i class="fa fa-bullseye"></i> Measurement</label>
+        <input type="text" id="node-input-measurement">
+    </div>
+    <div class="form-row">
+        <label for="node-input-field"><i class="fa fa-list"></i> Field</label>
+        <input type="text" id="node-input-field">
+    </div>
+    <div class="form-row">
+        <label><i class="fa fa-tags"></i> Fixed Tags</label>
+        <input type="text" id="node-input-fixedTags" placeholder="JSON object, e.g. {&quot;org&quot;:&quot;ACME&quot;}">
+    </div>
+</script>
+
+<!-- Help text -->
+<script type="text/markdown" data-help-name="timescaledb">
+# TimescaleDB
+
+Write data to TimescaleDB (PostgreSQL) using a fixed schema for industry or home use. No manual SQL required.
+
+## Inputs
+- `msg.payload` (required)
+- `msg.measurement` (optional)
+- `msg.topic` (optional)
+- `msg.field` (optional)
+- `msg.tags` (optional)
+- `msg.jsonb` (optional)
+
+## Outputs
+- Returns the input `msg` with `msg.result` containing the server response.
+
+## Configuration
+- Select schema (industrial/home)
+- Select payload type (naked/JSON)
+- Set measurement, field, and fixed tags (can be overridden by msg)
+- SSL connection supported
+</script> 

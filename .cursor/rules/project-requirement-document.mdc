@@ -1,0 +1,53 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Node red contrib timescaledb
+
+This will be a Node-RED plugin/node that acts as a connector between "naked" or JSON object payloads and TimescaleDB. The main objective is to eliminate the need for manual SQL coding.
+
+## Target database schema
+We will use a fixed database schema, available in two versions: one for industrial purposes and one for home use. ISA-95 convention is used. The schema can be found in [database-schema.mdc](mdc:.cursor/rules/database-schema.mdc)
+
+## Node creation rules
+Follow the official Node-RED plugin creation documentation: https://nodered.org/docs/creating-nodes/
+
+## Node Configuration Page
+
+- PostgreSQL Credentials: Store the PostgreSQL credentials and URL in the config node.
+- Configuration Parameters: The main node settings page will contain several configuration parameters:
+    - Server Configuration: As described above.
+    - Schema Selection: Select between "home" or "industrial" use to properly choose the internal database schema.
+    - Payload Type: Choose between "naked" and "JSON object".
+        - If "naked" is set, both measurement configuration and field configuration are mandatory.
+        - If "JSON object" is set, only measurement is mandatory.
+    - Measurement Settings: Measurement can be defined via a text input or a radio button with the option "defined by msg.measurement".
+    - Fixed Tags: There will be five text inputs called "Fixed tags":
+        - For industrial use: org, location, building, area, device
+        - For home use: name, location, building, floor, device
+        - These fields are optional, as they can also be set in the msg object.
+
+## Inputs
+msg.payload (mandatory)
+msg.measurement (optional) — Overwrites the measurement setting on the configuration page.
+msg.topic (optional) — If set, divide the first five parts (delimited by /) of the topic into the columns: org, location, building, area, device.
+msg.field (optional) — Overwrites the field setting on the configuration page.
+msg.tags (optional) — JSON object with the fixed tag settings according to industrial or home use (overwrites configuration if set).
+msg.jsonb (optional) — Additional tags as a JSON object (key:value pairs). These will be saved to a jsonb field.
+
+## Outputs
+Repeat the input msg and add msg.result, including the server response message.
+
+## Automatic data type selection
+
+Implement automatic data type selection based on msg.payload:
+
+- Read the values in msg.payload and detect the correct data type for each value:
+    - If the value contains a decimal, automatically select "value_double" as the target column.
+    - If the value is a boolean, automatically select "value_boolean" as the target column.
+    - If the value is an integer (no decimal):
+        - If "home" use is configured, the target column for integers will be "value_int".
+        - If "industrial" use is configured, the target column for integers will be "value_bigint".
+    - If the value is text, automatically select "value_text" as the target column.
+

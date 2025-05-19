@@ -1,0 +1,69 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## Database schema fot industry purposes
+
+```
+CREATE TABLE measurements (
+    id INTEGER,
+    time TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    org TEXT,
+    location TEXT,
+    building TEXT,
+    area TEXT,
+    device TEXT,
+
+    measurement TEXT NOT NULL,
+    field TEXT NOT NULL,
+
+    value_bool BOOLEAN,
+    value_smallint SMALLINT,
+    value_int INTEGER,
+    value_bigint BIGINT,
+    value_double DOUBLE PRECISION,
+    value_text TEXT,
+    unit TEXT,
+    tags JSONB
+);
+
+CREATE INDEX measurements_fixed_tags ON measurements (org, location, building, area, device, measurement, field, time DESC);
+CREATE INDEX measurements_tags_gin_idx ON measurements USING GIN (tags);
+
+SELECT create_hypertable('measurements', 'time');
+```
+
+
+## Database schema fot home purposes
+
+```
+CREATE TABLE measurements (
+    id INTEGER,
+    time TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    name TEXT,
+    location TEXT,
+    building TEXT,
+    floor TEXT,
+    device TEXT,
+
+    measurement TEXT NOT NULL,
+    field TEXT NOT NULL,
+
+    value_bool BOOLEAN,
+    value_smallint SMALLINT,
+    value_int INTEGER,
+    value_bigint BIGINT,
+    value_double DOUBLE PRECISION,
+    value_text TEXT,
+    unit TEXT,
+    tags JSONB
+);
+
+CREATE INDEX measurements_fixed_tags ON measurements (org, location, building, area, device, measurement, field, time DESC);
+CREATE INDEX measurements_tags_gin_idx ON measurements USING GIN (tags);
+
+SELECT create_hypertable('measurements', 'time');
+```

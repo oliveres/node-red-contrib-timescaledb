@@ -1,0 +1,76 @@
+[
+    {
+        "id": "inject1",
+        "type": "inject",
+        "name": "Naked payload (industrial)",
+        "props": [
+            { "p": "payload" }
+        ],
+        "payload": "42.5",
+        "payloadType": "num",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "ACME/Plant1/A/Zone1/Sensor42",
+        "x": 200,
+        "y": 100,
+        "wires": [["timescaledb1"]]
+    },
+    {
+        "id": "inject2",
+        "type": "inject",
+        "name": "JSON payload (home)",
+        "props": [
+            { "p": "payload" }
+        ],
+        "payload": "{\"temperature\": 21, \"humidity\": 55.2, \"active\": true, \"note\": \"ok\"}",
+        "payloadType": "json",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "Home/Prague/Flat/2ndFloor/Thermo1",
+        "x": 200,
+        "y": 180,
+        "wires": [["timescaledb2"]]
+    },
+    {
+        "id": "timescaledb1",
+        "type": "timescaledb",
+        "name": "Write (industrial)",
+        "server": "config1",
+        "schema": "industrial",
+        "payloadType": "naked",
+        "measurement": "temperature",
+        "field": "value",
+        "fixedTags": "{\"org\":\"ACME\",\"location\":\"Plant1\",\"building\":\"A\",\"area\":\"Zone1\",\"device\":\"Sensor42\"}",
+        "x": 500,
+        "y": 100,
+        "wires": [[]]
+    },
+    {
+        "id": "timescaledb2",
+        "type": "timescaledb",
+        "name": "Write (home)",
+        "server": "config1",
+        "schema": "home",
+        "payloadType": "json",
+        "measurement": "environment",
+        "field": "",
+        "fixedTags": "{\"name\":\"Home\",\"location\":\"Prague\",\"building\":\"Flat\",\"floor\":\"2ndFloor\",\"device\":\"Thermo1\"}",
+        "x": 500,
+        "y": 180,
+        "wires": [[]]
+    },
+    {
+        "id": "config1",
+        "type": "timescaledb-config",
+        "host": "localhost",
+        "port": 5432,
+        "database": "testdb",
+        "user": "postgres",
+        "password": "postgres",
+        "ssl": false
+    }
+] 
