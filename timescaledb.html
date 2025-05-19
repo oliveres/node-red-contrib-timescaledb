@@ -26,7 +26,9 @@
             payloadType: { value: 'json', required: true },
             measurement: { value: '' },
             field: { value: '' },
-            fixedTags: { value: {} }
+            fixedTags: { value: {} },
+            topicMapping: { value: 'org/location/building/area/device/measurement/field' },
+            ignoreTopic: { value: false }
         },
         inputs: 1,
         outputs: 1,
@@ -101,6 +103,14 @@
         <label><i class="fa fa-tags"></i> Fixed Tags</label>
         <input type="text" id="node-input-fixedTags" placeholder="JSON object, e.g. {&quot;org&quot;:&quot;ACME&quot;}">
     </div>
+    <div class="form-row">
+        <label for="node-input-topicMapping"><i class="fa fa-random"></i> Topic mapping</label>
+        <input type="text" id="node-input-topicMapping" placeholder="org/location/building/area/device/measurement/field">
+    </div>
+    <div class="form-row">
+        <label for="node-input-ignoreTopic"><i class="fa fa-ban"></i> Ignore msg.topic</label>
+        <input type="checkbox" id="node-input-ignoreTopic">
+    </div>
 </script>
 
 <!-- Help text -->
@@ -125,4 +135,13 @@ Write data to TimescaleDB (PostgreSQL) using a fixed schema for industry or home
 - Select payload type (naked/JSON)
 - Set measurement, field, and fixed tags (can be overridden by msg)
 - SSL connection supported
+
+## Topic mapping
+- Define how topic levels are mapped to DB columns or JSONB tags.
+- Use '-' to skip a level, or a custom name to store in JSONB.
+- Extra topic levels (beyond mapping) are stored as tag1, tag2, ... in JSONB.
+- Example: org/location/building/area/device/-/foo/bar/field
+
+## Ignore msg.topic
+- If checked, msg.topic is ignored and only fixed tags or msg.tags are used.
 </script> 

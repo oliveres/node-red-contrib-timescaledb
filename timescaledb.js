@@ -87,6 +87,8 @@ module.exports = function(RED) {
         node.measurement = config.measurement;
         node.field = config.field;
         node.fixedTags = config.fixedTags || {};
+        node.topicMapping = config.topicMapping || 'org/location/building/area/device/measurement/field';
+        node.ignoreTopic = config.ignoreTopic || false;
 
         // Create a connection pool (best practice for Node-RED)
         const pool = new Pool({
@@ -100,35 +102,64 @@ module.exports = function(RED) {
 
         node.on('input', async function(msg, send, done) {
             try {
-                // 1. Prepare tags (fixed, from msg.tags, from topic)
+                // --- TOPIC MAPPING LOGIC ---
+                let useTopic = !node.ignoreTopic && msg.topic;
+                let mapping = (msg.mapping && typeof msg.mapping === 'string') ? msg.mapping : node.topicMapping;
                 let tags = {};
-                if (typeof node.fixedTags === 'string') {
-                    try { tags = JSON.parse(node.fixedTags); } catch {}
-                } else if (typeof node.fixedTags === 'object') {
-                    tags = { ...node.fixedTags };
+                let measurement = node.measurement;
+                let field = node.field;
+                let extraTags = {};
+                if (useTopic) {
+                    const topicParts = msg.topic.split('/');
+                    const mappingParts = mapping.split('/');
+                    let tagCounter = 1;
+                    for (let i = 0; i < topicParts.length; i++) {
+                        const mapKey = mappingParts[i];
+                        const topicVal = topicParts[i];
+                        if (mapKey === undefined) {
+                            // Extra topic part, store as tagN in JSONB
+                            extraTags[`tag${tagCounter}`] = topicVal;
+                            tagCounter++;
+                        } else if (mapKey === '-') {
+                            // Skip this topic part
+                            continue;
+                        } else if ([
+                            'org','name','location','building','area','floor','device','measurement','field'
+                        ].includes(mapKey)) {
+                            // Map to DB column
+                            if (mapKey === 'measurement') measurement = topicVal;
+                            else if (mapKey === 'field') field = topicVal;
+                            else tags[mapKey] = topicVal;
+                        } else {
+                            // Custom key, store in JSONB
+                            extraTags[mapKey] = topicVal;
+                        }
+                    }
+                } else {
+                    // Standard logic: tags from node, msg.tags, topic (old logic)
+                    if (typeof node.fixedTags === 'string') {
+                        try { tags = JSON.parse(node.fixedTags); } catch {}
+                    } else if (typeof node.fixedTags === 'object') {
+                        tags = { ...node.fixedTags };
+                    }
+                    if (msg.tags && typeof msg.tags === 'object') {
+                        tags = { ...tags, ...msg.tags };
+                    }
+                    if (msg.topic) {
+                        // fallback: parseTopicToTags(msg.topic, node.schema) - původní logika
+                        Object.assign(tags, parseTopicToTags(msg.topic, node.schema));
+                    }
+                    if (msg.measurement) measurement = msg.measurement;
+                    if (msg.field) field = msg.field;
                 }
-                if (msg.tags && typeof msg.tags === 'object') {
-                    tags = { ...tags, ...msg.tags };
-                }
-                if (msg.topic) {
-                    tags = { ...tags, ...parseTopicToTags(msg.topic, node.schema) };
-                }
-
-                // 2. Measurement
-                let measurement = msg.measurement || node.measurement;
+                // 2. Field check
                 if (!measurement) throw new Error('Measurement is required');
-
-                // 3. Field
-                let field = msg.field || node.field;
                 if (!field && node.payloadType === 'naked') throw new Error('Field is required for naked payload');
-
-                // 4. Prepare values
+                // 3. Prepare values
                 let values = [];
                 if (node.payloadType === 'naked') {
-                    // Only one value, field is required
                     values.push({ field, value: msg.payload });
                 } else {
-                    // JSON object, each key is a field
                     if (typeof msg.payload !== 'object' || msg.payload === null) {
                         throw new Error('Payload must be an object for JSON payload type');
                     }
@@ -136,9 +167,11 @@ module.exports = function(RED) {
                         values.push({ field: k, value: v });
                     }
                 }
-
-                // 5. Prepare jsonb tags
-                let jsonb = msg.jsonb && typeof msg.jsonb === 'object' ? msg.jsonb : {};
+                // 4. Prepare jsonb tags (merge extraTags + msg.jsonb)
+                let jsonb = { ...extraTags };
+                if (msg.jsonb && typeof msg.jsonb === 'object') {
+                    jsonb = { ...jsonb, ...msg.jsonb };
+                }
 
                 // 6. Insert each value as a row
                 let results = [];
