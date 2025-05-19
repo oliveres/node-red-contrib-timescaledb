@@ -145,14 +145,14 @@ module.exports = function(RED) {
                 for (const v of values) {
                     const { column, value } = detectTypeAndColumn(v.value, node.schema);
                     // Prepare columns and values for SQL
-                    let columns = ['time', 'measurement', 'field', column, 'unit', 'tags'];
-                    let params = ['now()', '$1', '$2', '$3', '$4', '$5'];
-                    let paramValues = [measurement, v.field, value, null, null];
+                    let columns = ['time', 'measurement', 'field', column, 'unit'];
+                    let params = ['now()', '$1', '$2', '$3', '$4'];
+                    let paramValues = [measurement, v.field, value, null];
 
                     // Add fixed tags columns
                     if (node.schema === 'industrial') {
                         columns.splice(1, 0, 'org', 'location', 'building', 'area', 'device');
-                        params.splice(1, 0, '$6', '$7', '$8', '$9', '$10');
+                        params.splice(1, 0, '$5', '$6', '$7', '$8', '$9');
                         paramValues.splice(1, 0,
                             tags.org || null,
                             tags.location || null,
@@ -162,7 +162,7 @@ module.exports = function(RED) {
                         );
                     } else {
                         columns.splice(1, 0, 'name', 'location', 'building', 'floor', 'device');
-                        params.splice(1, 0, '$6', '$7', '$8', '$9', '$10');
+                        params.splice(1, 0, '$5', '$6', '$7', '$8', '$9');
                         paramValues.splice(1, 0,
                             tags.name || null,
                             tags.location || null,
@@ -172,9 +172,9 @@ module.exports = function(RED) {
                         );
                     }
 
-                    // Add jsonb tags
+                    // Add jsonb tags only once
                     columns.push('tags');
-                    params.push('$11');
+                    params.push(`$${paramValues.length + 1}`);
                     paramValues.push(JSON.stringify(jsonb));
 
                     // Build SQL
