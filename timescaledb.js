@@ -161,7 +161,8 @@ module.exports = function(RED) {
                     for (let i = 1; i <= paramValues.length; i++) {
                         params.push(`$${i}`);
                     }
-                    const sql = `INSERT INTO measurements (${columns.join(',')}) VALUES (${params.join(',')})`;
+                    // Build SQL with quoted column names
+                    const sql = `INSERT INTO measurements (${columns.map(col => `"${col}"`).join(',')}) VALUES (${params.join(',')})`;
                     await pool.query(sql, paramValues);
                 }
                 msg.result = { status: 'ok', inserted: values.length };
