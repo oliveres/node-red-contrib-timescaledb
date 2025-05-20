@@ -1,22 +1,6 @@
 module.exports = function(RED) {
     const { Pool } = require('pg');
 
-    function TimescaleDBConfigNode(config) {
-        RED.nodes.createNode(this, config);
-        this.host = config.host;
-        this.port = config.port;
-        this.database = config.database;
-        this.user = this.credentials.user;
-        this.password = this.credentials.password;
-        this.ssl = config.ssl;
-    }
-    RED.nodes.registerType('timescaledb-config', TimescaleDBConfigNode, {
-        credentials: {
-            user: { type: 'text' },
-            password: { type: 'password' }
-        }
-    });
-
     function MQTTtoTimescaleDBNode(config) {
         RED.nodes.createNode(this, config);
         const node = this;
