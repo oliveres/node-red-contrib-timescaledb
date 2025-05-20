@@ -16,7 +16,8 @@
   },
   "node-red": {
     "nodes": {
-      "timescaledb": "timescaledb.js"
+      "timescaledb": "timescaledb.js",
+      "mqtt-to-timescaledb": "mqtt-to-timescaledb.js"
     }
   }
 } 
