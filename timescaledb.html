@@ -22,19 +22,17 @@
         defaults: {
             name: { value: '' },
             server: { type: 'timescaledb-config', required: true },
-            schema: { value: 'industrial', required: true },
-            payloadType: { value: 'json', required: true },
+            payloadType: { value: 'naked', required: true },
             measurement: { value: '' },
             field: { value: '' },
-            fixedTags: { value: {} },
-            topicMapping: { value: 'org/location/building/area/device/measurement/field' },
-            ignoreTopic: { value: false }
+            unit: { value: '' },
+            fixedTags: { value: {} }
         },
         inputs: 1,
         outputs: 1,
         icon: 'db.png',
         label: function() {
-            return this.name || 'timescaledb';
+            return this.name || 'Payload to TimescaleDB';
         }
     });
 </script>
@@ -78,13 +76,6 @@
         <input type="text" id="node-input-server">
     </div>
     <div class="form-row">
-        <label for="node-input-schema"><i class="fa fa-cube"></i> Schema</label>
-        <select id="node-input-schema">
-            <option value="industrial">Industrial</option>
-            <option value="home">Home</option>
-        </select>
-    </div>
-    <div class="form-row">
         <label for="node-input-payloadType"><i class="fa fa-code"></i> Payload Type</label>
         <select id="node-input-payloadType">
             <option value="naked">Naked</option>
@@ -100,48 +91,26 @@
         <input type="text" id="node-input-field">
     </div>
     <div class="form-row">
-        <label><i class="fa fa-tags"></i> Fixed Tags</label>
+        <label for="node-input-unit"><i class="fa fa-balance-scale"></i> Unit</label>
+        <input type="text" id="node-input-unit">
+    </div>
+    <div class="form-row">
+        <label><i class="fa fa-tags"></i> Fixed Tags (optional)</label>
         <input type="text" id="node-input-fixedTags" placeholder="JSON object, e.g. {&quot;org&quot;:&quot;ACME&quot;}">
-    </div>
-    <div class="form-row">
-        <label for="node-input-topicMapping"><i class="fa fa-random"></i> Topic mapping</label>
-        <input type="text" id="node-input-topicMapping" placeholder="org/location/building/area/device/measurement/field">
-    </div>
-    <div class="form-row">
-        <label for="node-input-ignoreTopic"><i class="fa fa-ban"></i> Ignore msg.topic</label>
-        <input type="checkbox" id="node-input-ignoreTopic">
     </div>
 </script>
 
 <!-- Help text -->
 <script type="text/markdown" data-help-name="timescaledb">
-# TimescaleDB
+# Payload to TimescaleDB
 
-Write data to TimescaleDB (PostgreSQL) using a fixed schema for industry or home use. No manual SQL required.
+This node writes naked or JSON object payloads to TimescaleDB. Use when your data is already normalized and you want to map fields and tags directly from the message or node configuration.
 
-## Inputs
-- `msg.payload` (required)
-- `msg.measurement` (optional)
-- `msg.topic` (optional)
-- `msg.field` (optional)
-- `msg.tags` (optional)
-- `msg.jsonb` (optional)
+- **Payload Type:** Choose between naked or JSON object payloads.
+- **Measurement:** Name of the measurement (can be overridden in msg).
+- **Field:** Name of the field (can be overridden in msg).
+- **Unit:** Optional unit for the value.
+- **Fixed Tags:** Optional JSON object with fixed tags (can be overridden in msg.tags).
 
-## Outputs
-- Returns the input `msg` with `msg.result` containing the server response.
-
-## Configuration
-- Select schema (industrial/home)
-- Select payload type (naked/JSON)
-- Set measurement, field, and fixed tags (can be overridden by msg)
-- SSL connection supported
-
-## Topic mapping
-- Define how topic levels are mapped to DB columns or JSONB tags.
-- Use '-' to skip a level, or a custom name to store in JSONB.
-- Extra topic levels (beyond mapping) are stored as tag1, tag2, ... in JSONB.
-- Example: org/location/building/area/device/-/foo/bar/field
-
-## Ignore msg.topic
-- If checked, msg.topic is ignored and only fixed tags or msg.tags are used.
+This node does not process MQTT topics or mapping. For topic-based mapping, use the "MQTT to TimescaleDB" node.
 </script> 

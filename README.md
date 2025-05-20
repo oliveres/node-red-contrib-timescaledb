@@ -1,6 +1,37 @@
 # node-red-contrib-timescaledb
 
-Node-RED node for writing data to TimescaleDB (PostgreSQL) using a fixed schema for industry or home use. No manual SQL required.
+Node-RED nodes for writing data to TimescaleDB (PostgreSQL) using a unified schema for both industrial and home use. No manual SQL required.
+
+---
+
+## Nodes in this package
+
+### 1. MQTT to TimescaleDB
+- Maps MQTT topic levels to database columns or JSONB tags according to a mapping string.
+- Designed for scenarios where data arrives via MQTT or structured topic.
+- Supports topic mapping, mapping in msg, ignore topic, extra tags, and writes to TimescaleDB.
+
+### 2. Payload to TimescaleDB
+- Writes naked or JSON object payloads directly to TimescaleDB.
+- Use when your data is already normalized and you want to map fields and tags directly from the message or node configuration.
+- Does not process MQTT topics or mapping.
+
+---
+
+## Node Configuration (shared)
+- **Server:** Connection to PostgreSQL/TimescaleDB (host, port, database, user, password, SSL)
+- **Unit:** Optional unit for the value.
+- **Fixed Tags:** Optional JSON object with fixed tags (can be overridden in msg.tags).
+
+### MQTT to TimescaleDB (additional)
+- **Topic mapping:** String defining how topic levels map to columns/keys (see below)
+- **Ignore msg.topic:** If checked, msg.topic is ignored and only fixed tags or msg.tags are used.
+- **Payload Type:** "naked" or "JSON object"
+
+### Payload to TimescaleDB (additional)
+- **Payload Type:** "naked" or "JSON object"
+- **Measurement:** Name of the measurement (can be overridden in msg)
+- **Field:** Name of the field (can be overridden in msg)
 
 ---
 
@@ -13,22 +44,6 @@ Node-RED node for writing data to TimescaleDB (PostgreSQL) using a fixed schema 
 - Option to ignore topic and use only fixed tags
 - Support for unit and timestamp
 - Errors are reported to the debug window and `msg.result`
-
----
-
-## Node Configuration
-
-| Parameter         | Description                                                                 |
-|------------------|-----------------------------------------------------------------------------|
-| **Server**       | Connection to PostgreSQL/TimescaleDB (host, port, database, user, password, SSL) |
-| **Schema**       | Select between "industrial" and "home" (affects tag/column names)         |
-| **Payload Type** | "naked" or "JSON object"                                                  |
-| **Measurement**  | Measurement name (can be overridden in msg)                                 |
-| **Field**        | Field name (can be overridden in msg)                                       |
-| **Fixed Tags**   | JSON object with fixed tags (can be overridden in msg)                      |
-| **Unit**         | Unit of the value (can be overridden in msg)                                |
-| **Topic mapping**| String defining how topic levels map to columns/keys (see below)            |
-| **Ignore msg.topic** | If checked, topic is ignored                                            |
 
 ---
 
@@ -191,3 +206,90 @@ See [database-schema.mdc](./database-schema.mdc) for details.
 
 ## License
 MIT 
+
+## Example Flow
+
+```json
+[
+  {
+    "id": "inject1",
+    "type": "inject",
+    "name": "MQTT: topic mapping",
+    "props": [
+      { "p": "payload" },
+      { "p": "topic" }
+    ],
+    "payload": "42.5",
+    "payloadType": "num",
+    "topic": "NNSTEEL/FVE/Hall/Meters/Inverter1/Live/ActivePower",
+    "x": 200,
+    "y": 80,
+    "wires": [["mqtt2tsdb"]]
+  },
+  {
+    "id": "mqtt2tsdb",
+    "type": "mqtt-to-timescaledb",
+    "name": "MQTT to TimescaleDB",
+    "server": "config1",
+    "topicMapping": "org/location/building/area/device/measurement/field",
+    "ignoreTopic": false,
+    "payloadType": "naked",
+    "unit": "",
+    "fixedTags": "{}",
+    "x": 500,
+    "y": 80,
+    "wires": [[]]
+  },
+  {
+    "id": "inject2",
+    "type": "inject",
+    "name": "Payload: direct write",
+    "props": [
+      { "p": "payload" },
+      { "p": "tags" },
+      { "p": "measurement" },
+      { "p": "field" }
+    ],
+    "payload": "55.2",
+    "payloadType": "num",
+    "tags": "{\"org\":\"ACME\",\"location\":\"Plant1\"}",
+    "measurement": "temperature",
+    "field": "value",
+    "x": 200,
+    "y": 180,
+    "wires": [["payload2tsdb"]]
+  },
+  {
+    "id": "payload2tsdb",
+    "type": "timescaledb",
+    "name": "Payload to TimescaleDB",
+    "server": "config1",
+    "payloadType": "naked",
+    "measurement": "temperature",
+    "field": "value",
+    "unit": "",
+    "fixedTags": "{\"org\":\"ACME\",\"location\":\"Plant1\"}",
+    "x": 500,
+    "y": 180,
+    "wires": [[]]
+  },
+  {
+    "id": "config1",
+    "type": "timescaledb-config",
+    "host": "localhost",
+    "port": 5432,
+    "database": "testdb",
+    "user": "postgres",
+    "password": "postgres",
+    "ssl": false
+  }
+]
+```
+
+---
+
+## Usage
+- Use **MQTT to TimescaleDB** when you want to map topic levels to DB columns/tags.
+- Use **Payload to TimescaleDB** when your data is already normalized and you want to write it directly.
+
+See detailed documentation in `DOC_DETAILS.md` for all options, mapping logic, and advanced scenarios. 

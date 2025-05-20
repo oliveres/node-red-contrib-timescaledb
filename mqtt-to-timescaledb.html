@@ -1,0 +1,67 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mqtt-to-timescaledb', {
+        category: 'storage',
+        color: '#a6bbcf',
+        defaults: {
+            name: { value: '' },
+            server: { type: 'timescaledb-config', required: true },
+            topicMapping: { value: 'org/name/location/building/area/floor/room/group/device/measurement/field' },
+            ignoreTopic: { value: false },
+            payloadType: { value: 'naked', required: true },
+            unit: { value: '' },
+            fixedTags: { value: {} }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'db.png',
+        label: function() {
+            return this.name || 'MQTT to TimescaleDB';
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="mqtt-to-timescaledb">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-server"><i class="fa fa-server"></i> Server</label>
+        <input type="text" id="node-input-server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-topicMapping"><i class="fa fa-random"></i> Topic mapping</label>
+        <input type="text" id="node-input-topicMapping" placeholder="org/name/location/building/area/floor/room/group/device/measurement/field">
+    </div>
+    <div class="form-row">
+        <label for="node-input-ignoreTopic"><i class="fa fa-ban"></i> Ignore msg.topic</label>
+        <input type="checkbox" id="node-input-ignoreTopic">
+    </div>
+    <div class="form-row">
+        <label for="node-input-payloadType"><i class="fa fa-code"></i> Payload Type</label>
+        <select id="node-input-payloadType">
+            <option value="naked">Naked</option>
+            <option value="json">JSON Object</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-unit"><i class="fa fa-balance-scale"></i> Unit</label>
+        <input type="text" id="node-input-unit">
+    </div>
+    <div class="form-row">
+        <label><i class="fa fa-tags"></i> Fixed Tags (optional)</label>
+        <input type="text" id="node-input-fixedTags" placeholder="JSON object, e.g. {&quot;org&quot;:&quot;ACME&quot;}">
+    </div>
+</script>
+
+<script type="text/markdown" data-help-name="mqtt-to-timescaledb">
+# MQTT to TimescaleDB
+
+This node maps MQTT topic levels to database columns or JSONB tags according to the mapping string, and writes the data to TimescaleDB. Use for scenarios where data arrives via MQTT or structured topic.
+
+- **Topic mapping:** Define how topic levels are mapped to DB columns or JSONB tags. Use '-' to skip a level, or a custom name to store in JSONB. Extra topic levels are stored as tag1, tag2, ... in JSONB.
+- **Ignore msg.topic:** If checked, msg.topic is ignored and only fixed tags or msg.tags are used.
+- **Payload Type:** Choose between naked or JSON object payloads.
+- **Unit:** Optional unit for the value.
+- **Fixed Tags:** Optional JSON object with fixed tags (used if mapping is incomplete).
+</script> 

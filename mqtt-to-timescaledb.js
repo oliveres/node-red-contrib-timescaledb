@@ -1,7 +1,6 @@
 module.exports = function(RED) {
     const { Pool } = require('pg');
 
-    // Config node for DB connection
     function TimescaleDBConfigNode(config) {
         RED.nodes.createNode(this, config);
         this.host = config.host;
@@ -18,75 +17,14 @@ module.exports = function(RED) {
         }
     });
 
-    // Helper: Parse topic to tags (first 5 parts)
-    function parseTopicToTags(topic, schema) {
-        if (!topic) return {};
-        const parts = topic.split('/');
-        if (schema === 'industrial') {
-            return {
-                org: parts[0] || undefined,
-                location: parts[1] || undefined,
-                building: parts[2] || undefined,
-                area: parts[3] || undefined,
-                device: parts[4] || undefined
-            };
-        } else {
-            return {
-                name: parts[0] || undefined,
-                location: parts[1] || undefined,
-                building: parts[2] || undefined,
-                floor: parts[3] || undefined,
-                device: parts[4] || undefined
-            };
-        }
-    }
-
-    // Helper: Detect value type and target column
-    function detectTypeAndColumn(value, schema) {
-        if (typeof value === 'boolean') {
-            return { column: 'value_bool', value };
-        } else if (typeof value === 'number') {
-            if (Number.isInteger(value)) {
-                if (schema === 'home') {
-                    return { column: 'value_int', value };
-                } else {
-                    return { column: 'value_bigint', value };
-                }
-            } else {
-                return { column: 'value_double', value };
-            }
-        } else if (typeof value === 'string') {
-            // Try to parse as number or boolean
-            if (value === 'true' || value === 'false') {
-                return { column: 'value_bool', value: value === 'true' };
-            } else if (!isNaN(Number(value))) {
-                if (value.includes('.')) {
-                    return { column: 'value_double', value: Number(value) };
-                } else {
-                    if (schema === 'home') {
-                        return { column: 'value_int', value: Number(value) };
-                    } else {
-                        return { column: 'value_bigint', value: Number(value) };
-                    }
-                }
-            } else {
-                return { column: 'value_text', value };
-            }
-        } else {
-            return { column: 'value_text', value: String(value) };
-        }
-    }
-
-    // Main node
-    function PayloadToTimescaleDBNode(config) {
+    function MQTTtoTimescaleDBNode(config) {
         RED.nodes.createNode(this, config);
         const node = this;
         node.configNode = RED.nodes.getNode(config.server);
+        node.topicMapping = config.topicMapping || 'org/location/building/area/floor/room/group/device/measurement/field';
+        node.ignoreTopic = config.ignoreTopic || false;
         node.unit = config.unit;
         node.fixedTags = config.fixedTags || {};
-        node.measurement = config.measurement;
-        node.field = config.field;
-        node.payloadType = config.payloadType || 'naked';
 
         const pool = new Pool({
             host: node.configNode.host,
@@ -99,24 +37,45 @@ module.exports = function(RED) {
 
         node.on('input', async function(msg, send, done) {
             try {
-                // Prepare tags from node or msg.tags
+                let useTopic = !node.ignoreTopic && msg.topic;
+                let mapping = (msg.mapping && typeof msg.mapping === 'string') ? msg.mapping : node.topicMapping;
                 let tags = {};
-                if (typeof node.fixedTags === 'string') {
-                    try { tags = JSON.parse(node.fixedTags); } catch {}
-                } else if (typeof node.fixedTags === 'object') {
-                    tags = { ...node.fixedTags };
+                let measurement = undefined;
+                let field = undefined;
+                let extraTags = {};
+                if (useTopic) {
+                    const topicParts = msg.topic.split('/');
+                    const mappingParts = mapping.split('/');
+                    let tagCounter = 1;
+                    for (let i = 0; i < topicParts.length; i++) {
+                        const mapKey = mappingParts[i];
+                        const topicVal = topicParts[i];
+                        if (mapKey === undefined) {
+                            extraTags[`tag${tagCounter}`] = topicVal;
+                            tagCounter++;
+                        } else if (mapKey === '-') {
+                            continue;
+                        } else if ([
+                            'org','name','location','building','area','floor','room','group','device','measurement','field'
+                        ].includes(mapKey)) {
+                            if (mapKey === 'measurement') measurement = topicVal;
+                            else if (mapKey === 'field') field = topicVal;
+                            else tags[mapKey] = topicVal;
+                        } else {
+                            extraTags[mapKey] = topicVal;
+                        }
+                    }
+                } else {
+                    node.error('MQTT to TimescaleDB node requires msg.topic unless ignoreTopic is set.', msg);
+                    msg.result = { status: 'error', error: 'No topic provided and ignoreTopic is false.' };
+                    send(msg);
+                    if (done) done();
+                    return;
                 }
-                if (msg.tags && typeof msg.tags === 'object') {
-                    tags = { ...tags, ...msg.tags };
-                }
-                // Measurement and field
-                let measurement = msg.measurement || node.measurement;
-                let field = msg.field || node.field;
-                if (!measurement) throw new Error('Measurement is required');
-                if (!field && node.payloadType === 'naked') throw new Error('Field is required for naked payload');
-                // Prepare values
+                if (!measurement) throw new Error('Measurement is required (from topic mapping).');
+                if (!field) throw new Error('Field is required (from topic mapping).');
                 let values = [];
-                if (node.payloadType === 'naked') {
+                if (config.payloadType === 'naked') {
                     values.push({ field, value: msg.payload });
                 } else {
                     if (typeof msg.payload !== 'object' || msg.payload === null) {
@@ -126,12 +85,14 @@ module.exports = function(RED) {
                         values.push({ field: k, value: v });
                     }
                 }
-                // Prepare jsonb tags
-                let jsonb = msg.jsonb && typeof msg.jsonb === 'object' ? msg.jsonb : {};
+                let jsonb = { ...extraTags };
+                if (msg.jsonb && typeof msg.jsonb === 'object') {
+                    jsonb = { ...jsonb, ...msg.jsonb };
+                }
                 let unit = msg.unit !== undefined ? msg.unit : (node.unit !== undefined ? node.unit : null);
                 let ts = msg.timestamp ? new Date(msg.timestamp) : new Date();
                 for (const v of values) {
-                    const { column, value } = detectTypeAndColumn(v.value, node.schema);
+                    const { column, value } = detectTypeAndColumn(v.value);
                     let columns = [];
                     let paramValues = [];
                     columns.push('time');
@@ -168,7 +129,7 @@ module.exports = function(RED) {
                 send(msg);
                 if (done) done();
             } catch (err) {
-                node.error('Payload to TimescaleDB insert error: ' + err.message, msg);
+                node.error('MQTT to TimescaleDB insert error: ' + err.message, msg);
                 msg.result = { status: 'error', error: err.message };
                 send(msg);
                 if (done) done(err);
@@ -178,5 +139,30 @@ module.exports = function(RED) {
             pool.end();
         });
     }
-    RED.nodes.registerType('timescaledb', PayloadToTimescaleDBNode);
+    function detectTypeAndColumn(value) {
+        if (typeof value === 'boolean') {
+            return { column: 'value_bool', value };
+        } else if (typeof value === 'number') {
+            if (Number.isInteger(value)) {
+                return { column: 'value_bigint', value };
+            } else {
+                return { column: 'value_double', value };
+            }
+        } else if (typeof value === 'string') {
+            if (value === 'true' || value === 'false') {
+                return { column: 'value_bool', value: value === 'true' };
+            } else if (!isNaN(Number(value))) {
+                if (value.includes('.')) {
+                    return { column: 'value_double', value: Number(value) };
+                } else {
+                    return { column: 'value_bigint', value: Number(value) };
+                }
+            } else {
+                return { column: 'value_text', value };
+            }
+        } else {
+            return { column: 'value_text', value: String(value) };
+        }
+    }
+    RED.nodes.registerType('mqtt-to-timescaledb', MQTTtoTimescaleDBNode);
 }; 
