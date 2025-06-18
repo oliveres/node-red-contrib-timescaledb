@@ -9,12 +9,11 @@ Node-RED nodes for writing data to TimescaleDB (PostgreSQL) using a unified sche
 ### 1. MQTT to TimescaleDB
 - Maps MQTT topic levels to database columns or JSONB tags according to a mapping string.
 - Designed for scenarios where data arrives via MQTT or structured topic.
-- Supports topic mapping, mapping in msg, ignore topic, extra tags, and writes to TimescaleDB.
+- Supports topic mapping via the msg.mapping or ignore msg.topic with fixed config, extra tags to JSONB column.
 
 ### 2. Payload to TimescaleDB
 - Writes naked or JSON object payloads directly to TimescaleDB.
 - Use when your data is already normalized and you want to map fields and tags directly from the message or node configuration.
-- Does not process MQTT topics or mapping.
 
 ---
 
@@ -37,12 +36,12 @@ Node-RED nodes for writing data to TimescaleDB (PostgreSQL) using a unified sche
 
 ## Features
 
-- Supports both "industry" and "home" schemas (ISA-95 convention)
+- Supports database schema for "industry" and "home" use (inspired by ISA-95 convention)
 - Automatic data type detection (boolean, integer, double, text)
 - Supports both "naked" and JSON object payloads
 - Flexible topic mapping to DB columns and JSONB tags
-- Option to ignore topic and use only fixed tags
-- Support for unit and timestamp
+- Option to ignore msg.topic and use only fixed tags
+- Support for custom unit and timestamp
 - Errors are reported to the debug window and `msg.result`
 
 ---
@@ -84,11 +83,11 @@ Node-RED nodes for writing data to TimescaleDB (PostgreSQL) using a unified sche
 - If mapping is longer than topic, missing values are `null`.
 
 **Example:**
-- Topic: `NNSTEEL/FVE/Hall/Meters/Inverter1/Live/ActivePower`
+- Topic: `ACME/PvPlant/Hall/Meters/Inverter1/Live/ActivePower`
 - Mapping: `org/location/building/area/device/measurement/field`
 - Result:
-  - org = NNSTEEL
-  - location = FVE
+  - org = ACME
+  - location = PvPlant
   - building = Hall
   - area = Meters
   - device = Inverter1
@@ -132,7 +131,7 @@ Node-RED nodes for writing data to TimescaleDB (PostgreSQL) using a unified sche
 ### 1. Write with topic and mapping
 ```json
 {
-  "topic": "NNSTEEL/FVE/Hall/Meters/Inverter1/Live/ActivePower",
+  "topic": "ACMPE/PvPlabt/Hall/Meters/Inverter1/Live/ActivePower",
   "payload": 1275
 }
 ```
@@ -221,7 +220,7 @@ MIT
     ],
     "payload": "42.5",
     "payloadType": "num",
-    "topic": "NNSTEEL/FVE/Hall/Meters/Inverter1/Live/ActivePower",
+    "topic": "ACME/PvPlant/Hall/Meters/Inverter1/Live/ActivePower",
     "x": 200,
     "y": 80,
     "wires": [["mqtt2tsdb"]]
@@ -278,10 +277,10 @@ MIT
     "type": "timescaledb-config",
     "host": "localhost",
     "port": 5432,
-    "database": "testdb",
+    "database": "postgres",
     "user": "postgres",
-    "password": "postgres",
-    "ssl": false
+    "password": "yourpassword",
+    "ssl": true
   }
 ]
 ```
