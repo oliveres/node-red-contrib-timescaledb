@@ -11,6 +11,7 @@ yarn-error.log*
 Thumbs.db
 
 # Editor/IDE
+.cursor/
 .vscode/
 .idea/
 *.swp

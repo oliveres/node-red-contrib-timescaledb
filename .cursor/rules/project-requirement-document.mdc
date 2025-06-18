@@ -8,7 +8,7 @@ alwaysApply: true
 This will be a Node-RED plugin/node that acts as a connector between "naked" or JSON object payloads and TimescaleDB. The main objective is to eliminate the need for manual SQL coding.
 
 ## Target database schema
-We will use a fixed database schema, available in two versions: one for industrial purposes and one for home use. ISA-95 convention is used. The schema can be found in [database-schema.mdc](mdc:.cursor/rules/database-schema.mdc)
+We will use a fixed database schema, available in two versions: one for industrial purposes and one for home use. ISA-95 convention is used. The schema can be found in [database-schema.sql](mdc:database-schema.sql)
 
 ## Node creation rules
 Follow the official Node-RED plugin creation documentation: https://nodered.org/docs/creating-nodes/

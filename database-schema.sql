@@ -1,11 +1,3 @@
----
-description: 
-globs: 
-alwaysApply: true
----
-## Database schema
-
-```
 CREATE TABLE measurements (
     id BIGSERIAL NOT NULL,
     time TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -16,7 +8,8 @@ CREATE TABLE measurements (
     area TEXT,
     building TEXT,
     floor TEXT,
-    group TEXT,
+    room TEXT,
+    "group" TEXT,
     device TEXT,
 
     measurement TEXT NOT NULL,
@@ -33,8 +26,7 @@ CREATE TABLE measurements (
 );
 
 CREATE INDEX measurements_home_idx ON measurements (name, location, building, floor, room, device, measurement, field, time DESC);
-CREATE INDEX measurements_industrial_idx ON measurements (org, location, building, area, group, room, device, measurement, field, time DESC);
+CREATE INDEX measurements_industrial_idx ON measurements (org, location, building, area, "group", room, device, measurement, field, time DESC);
 CREATE INDEX measurements_tags_gin_idx ON measurements USING GIN (tags);
 
 SELECT create_hypertable('measurements', 'time');
-```
