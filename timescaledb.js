@@ -1,28 +1,48 @@
 module.exports = function(RED) {
     const { Pool } = require('pg');
+    const { resolveTimestamp, writeMeasurement } = require('./lib/timescale');
 
-    // Config node for DB connection
+    // Config node for DB connection. Owns a single shared connection pool that
+    // is reused by every node referencing this configuration.
     function TimescaleDBConfigNode(config) {
         RED.nodes.createNode(this, config);
-        this.host = config.host;
-        this.port = config.port;
-        this.database = config.database;
-        this.user = this.credentials.user;
-        this.password = this.credentials.password;
-        this.ssl = config.ssl;
-        this.rejectUnauthorized = config.rejectUnauthorized;
-        this.ca = (config.ca && config.ca.trim()) ? config.ca : undefined;
+        const node = this;
+        node.host = config.host;
+        node.port = config.port;
+        node.database = config.database;
+        node.user = node.credentials.user;
+        node.password = node.credentials.password;
+        node.ssl = config.ssl;
+        node.rejectUnauthorized = config.rejectUnauthorized;
+        node.ca = (config.ca && config.ca.trim()) ? config.ca : undefined;
 
         // Build the `ssl` option for pg.Pool. Returns false when SSL is off;
         // otherwise the server certificate is validated by default and can only
         // be disabled by an explicit opt-out. Closes the previous MITM hole
         // where rejectUnauthorized was hard-coded to false.
-        this.getSslConfig = function() {
-            if (!this.ssl) return false;
-            const ssl = { rejectUnauthorized: this.rejectUnauthorized !== false };
-            if (this.ca) ssl.ca = this.ca;
+        node.getSslConfig = function() {
+            if (!node.ssl) return false;
+            const ssl = { rejectUnauthorized: node.rejectUnauthorized !== false };
+            if (node.ca) ssl.ca = node.ca;
             return ssl;
         };
+
+        node.pool = new Pool({
+            host: node.host,
+            port: node.port,
+            database: node.database,
+            user: node.user,
+            password: node.password,
+            ssl: node.getSslConfig()
+        });
+        // Without an error listener a dropped idle client would crash Node-RED.
+        node.pool.on('error', function(err) {
+            node.error('TimescaleDB pool error: ' + err.message);
+        });
+
+        node.on('close', function(done) {
+            node.pool.end().then(() => done()).catch(() => done());
+        });
     }
     RED.nodes.registerType('timescaledb-config', TimescaleDBConfigNode, {
         credentials: {
@@ -31,66 +51,7 @@ module.exports = function(RED) {
         }
     });
 
-    // Helper: Parse topic to tags (first 5 parts)
-    function parseTopicToTags(topic, schema) {
-        if (!topic) return {};
-        const parts = topic.split('/');
-        if (schema === 'industrial') {
-            return {
-                org: parts[0] || undefined,
-                location: parts[1] || undefined,
-                building: parts[2] || undefined,
-                area: parts[3] || undefined,
-                device: parts[4] || undefined
-            };
-        } else {
-            return {
-                name: parts[0] || undefined,
-                location: parts[1] || undefined,
-                building: parts[2] || undefined,
-                floor: parts[3] || undefined,
-                device: parts[4] || undefined
-            };
-        }
-    }
-
-    // Helper: Detect value type and target column
-    function detectTypeAndColumn(value, schema) {
-        if (typeof value === 'boolean') {
-            return { column: 'value_bool', value };
-        } else if (typeof value === 'number') {
-            if (Number.isInteger(value)) {
-                if (schema === 'home') {
-                    return { column: 'value_int', value };
-                } else {
-                    return { column: 'value_bigint', value };
-                }
-            } else {
-                return { column: 'value_double', value };
-            }
-        } else if (typeof value === 'string') {
-            // Try to parse as number or boolean
-            if (value === 'true' || value === 'false') {
-                return { column: 'value_bool', value: value === 'true' };
-            } else if (!isNaN(Number(value))) {
-                if (value.includes('.')) {
-                    return { column: 'value_double', value: Number(value) };
-                } else {
-                    if (schema === 'home') {
-                        return { column: 'value_int', value: Number(value) };
-                    } else {
-                        return { column: 'value_bigint', value: Number(value) };
-                    }
-                }
-            } else {
-                return { column: 'value_text', value };
-            }
-        } else {
-            return { column: 'value_text', value: String(value) };
-        }
-    }
-
-    // Main node
+    // Payload to TimescaleDB: writes naked or JSON object payloads.
     function PayloadToTimescaleDBNode(config) {
         RED.nodes.createNode(this, config);
         const node = this;
@@ -100,35 +61,40 @@ module.exports = function(RED) {
         node.measurement = config.measurement;
         node.field = config.field;
         node.payloadType = config.payloadType || 'naked';
+        node.schema = config.schema || 'industrial';
 
-        const pool = new Pool({
-            host: node.configNode.host,
-            port: node.configNode.port,
-            database: node.configNode.database,
-            user: node.configNode.user,
-            password: node.configNode.password,
-            ssl: node.configNode.getSslConfig()
-        });
+        // Without a valid config node there is no pool to write to.
+        if (!node.configNode || !node.configNode.pool) {
+            node.error('No TimescaleDB server configured');
+            node.status({ fill: 'red', shape: 'ring', text: 'no server config' });
+            return;
+        }
+        const pool = node.configNode.pool;
 
         node.on('input', async function(msg, send, done) {
             try {
-                // Prepare tags from node or msg.tags
+                // Tags: node fixed tags (JSON string or object) merged with msg.tags
                 let tags = {};
                 if (typeof node.fixedTags === 'string') {
-                    try { tags = JSON.parse(node.fixedTags); } catch {}
-                } else if (typeof node.fixedTags === 'object') {
+                    try {
+                        tags = JSON.parse(node.fixedTags);
+                    } catch {
+                        node.warn('Invalid Fixed Tags JSON, ignoring');
+                    }
+                } else if (node.fixedTags && typeof node.fixedTags === 'object') {
                     tags = { ...node.fixedTags };
                 }
                 if (msg.tags && typeof msg.tags === 'object') {
                     tags = { ...tags, ...msg.tags };
                 }
-                // Measurement and field
-                let measurement = msg.measurement || node.measurement;
-                let field = msg.field || node.field;
+
+                const measurement = msg.measurement || node.measurement;
+                const field = msg.field || node.field;
                 if (!measurement) throw new Error('Measurement is required');
                 if (!field && node.payloadType === 'naked') throw new Error('Field is required for naked payload');
-                // Prepare values
-                let values = [];
+
+                // One row per value
+                const values = [];
                 if (node.payloadType === 'naked') {
                     values.push({ field, value: msg.payload });
                 } else {
@@ -139,44 +105,16 @@ module.exports = function(RED) {
                         values.push({ field: k, value: v });
                     }
                 }
-                // Prepare jsonb tags
-                let jsonb = msg.jsonb && typeof msg.jsonb === 'object' ? msg.jsonb : {};
-                let unit = msg.unit !== undefined ? msg.unit : (node.unit !== undefined ? node.unit : null);
-                let ts = msg.timestamp ? new Date(msg.timestamp) : new Date();
+
+                const jsonb = msg.jsonb && typeof msg.jsonb === 'object' ? msg.jsonb : {};
+                const unit = msg.unit !== undefined ? msg.unit : (node.unit !== undefined ? node.unit : null);
+                const time = resolveTimestamp(msg.timestamp, () => node.warn('Invalid msg.timestamp, using current time'));
+
                 for (const v of values) {
-                    const { column, value } = detectTypeAndColumn(v.value, node.schema);
-                    let columns = [];
-                    let paramValues = [];
-                    columns.push('time');
-                    paramValues.push(ts);
-                    // All possible tags in fixed order
-                    columns.push('org','name','location','building','area','floor','room','group','device');
-                    paramValues.push(
-                        tags.org !== undefined ? tags.org : null,
-                        tags.name !== undefined ? tags.name : null,
-                        tags.location !== undefined ? tags.location : null,
-                        tags.building !== undefined ? tags.building : null,
-                        tags.area !== undefined ? tags.area : null,
-                        tags.floor !== undefined ? tags.floor : null,
-                        tags.room !== undefined ? tags.room : null,
-                        tags.group !== undefined ? tags.group : null,
-                        tags.device !== undefined ? tags.device : null
-                    );
-                    columns.push('measurement', 'field');
-                    paramValues.push(measurement, v.field);
-                    columns.push(column);
-                    paramValues.push(value);
-                    columns.push('unit');
-                    paramValues.push(unit);
-                    columns.push('tags');
-                    paramValues.push(JSON.stringify(jsonb));
-                    const params = [];
-                    for (let i = 1; i <= paramValues.length; i++) {
-                        params.push(`$${i}`);
-                    }
-                    // Build SQL with quoted column names
-                    const sql = `INSERT INTO measurements (${columns.map(col => `"${col}"`).join(',')}) VALUES (${params.join(',')})`;
-                    await pool.query(sql, paramValues);
+                    await writeMeasurement(pool, {
+                        time, tags, measurement, field: v.field,
+                        value: v.value, unit, jsonb, schema: node.schema
+                    });
                 }
                 msg.result = { status: 'ok', inserted: values.length };
                 send(msg);
@@ -188,9 +126,7 @@ module.exports = function(RED) {
                 if (done) done(err);
             }
         });
-        node.on('close', function() {
-            pool.end();
-        });
+        // The pool is owned and closed by the config node, not here.
     }
     RED.nodes.registerType('timescaledb', PayloadToTimescaleDBNode);
-}; 
+};

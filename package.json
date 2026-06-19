@@ -8,6 +8,7 @@
     "timescaledb.html",
     "mqtt-to-timescaledb.js",
     "mqtt-to-timescaledb.html",
+    "lib/",
     "database-schema.sql",
     "INSTALL.md",
     "DOC_DETAILS.md"

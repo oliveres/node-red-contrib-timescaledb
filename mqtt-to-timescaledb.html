@@ -9,7 +9,8 @@
             ignoreTopic: { value: false },
             payloadType: { value: 'naked', required: true },
             unit: { value: '' },
-            fixedTags: { value: {} }
+            fixedTags: { value: {} },
+            schema: { value: 'industrial' }
         },
         inputs: 1,
         outputs: 1,
@@ -42,6 +43,13 @@
         <select id="node-input-payloadType">
             <option value="naked">Naked</option>
             <option value="json">JSON Object</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-schema"><i class="fa fa-sitemap"></i> Schema</label>
+        <select id="node-input-schema">
+            <option value="industrial">Industrial (integers &rarr; value_bigint)</option>
+            <option value="home">Home (integers &rarr; value_int)</option>
         </select>
     </div>
     <div class="form-row">
