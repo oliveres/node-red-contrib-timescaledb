@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = function(RED) {
     const { Pool } = require('pg');
     const { resolveTimestamp, writeMeasurement } = require('./lib/timescale');
