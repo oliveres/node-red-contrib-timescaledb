@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-timescaledb",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Node-RED nodes for writing data to TimescaleDB without SQL queries. Supports MQTT topic mapping and automatic data type detection.",
   "main": "timescaledb.js",
   "files": [
@@ -11,7 +11,8 @@
     "lib/",
     "database-schema.sql",
     "INSTALL.md",
-    "DOC_DETAILS.md"
+    "DOC_DETAILS.md",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "node-red",
