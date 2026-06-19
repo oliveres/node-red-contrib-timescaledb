@@ -174,7 +174,7 @@ Mapping: `org/location/building/area/device/measurement/field`
 - If topic has more levels than mapping, the overflow goes to JSONB as `tag1`, `tag2`, ...
 
 ## Database schema
-See [database-schema.mdc](./database-schema.mdc) for details.
+See [database-schema.sql](./database-schema.sql) for details.
 
 ## Example flow
 ```

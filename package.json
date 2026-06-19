@@ -1,20 +1,49 @@
 {
   "name": "node-red-contrib-timescaledb",
   "version": "0.1.0",
-  "description": "Node-RED node for writing data to TimescaleDB using a ISA-95 convention for schema less approach.",
+  "description": "Node-RED nodes for writing data to TimescaleDB without SQL queries. Supports MQTT topic mapping and automatic data type detection.",
   "main": "timescaledb.js",
+  "files": [
+    "timescaledb.js",
+    "timescaledb.html",
+    "mqtt-to-timescaledb.js",
+    "mqtt-to-timescaledb.html",
+    "database-schema.sql",
+    "INSTALL.md",
+    "DOC_DETAILS.md"
+  ],
   "keywords": [
     "node-red",
     "timescaledb",
     "postgresql",
-    "database"
+    "database",
+    "mqtt",
+    "iot",
+    "time-series"
   ],
   "author": "SenseLog.com",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oliveres/node-red-contrib-timescaledb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/oliveres/node-red-contrib-timescaledb/issues"
+  },
+  "homepage": "https://github.com/oliveres/node-red-contrib-timescaledb#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "scripts": {
+    "test": "node-red -u test",
+    "dev": "node-red -u ~/.node-red",
+    "lint": "echo \"No linter configured yet\""
+  },
   "dependencies": {
     "pg": "^8.11.3"
   },
   "node-red": {
+    "version": ">=2.0.0",
     "nodes": {
       "timescaledb": "timescaledb.js",
       "mqtt-to-timescaledb": "mqtt-to-timescaledb.js"

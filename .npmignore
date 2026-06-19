@@ -1,0 +1,38 @@
+# NOTE: The published file set is defined primarily by the "files" whitelist
+# in package.json. This .npmignore is a secondary safety net so that
+# development-only files never end up in the tarball.
+
+# Tooling / IDE
+.claude/
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+.npmignore
+
+# Tests
+test/
+
+# Internal-only docs (not for the published package)
+CLAUDE.md
+
+# Build artifacts
+*.tgz
+
+# Scratch / misc
+Untitled.canvas
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
