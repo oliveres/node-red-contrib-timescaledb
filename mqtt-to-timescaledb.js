@@ -16,7 +16,7 @@ module.exports = function(RED) {
             database: node.configNode.database,
             user: node.configNode.user,
             password: node.configNode.password,
-            ssl: node.configNode.ssl ? { rejectUnauthorized: false } : false
+            ssl: node.configNode.getSslConfig()
         });
 
         node.on('input', async function(msg, send, done) {

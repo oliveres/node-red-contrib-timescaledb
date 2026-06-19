@@ -10,6 +10,19 @@ module.exports = function(RED) {
         this.user = this.credentials.user;
         this.password = this.credentials.password;
         this.ssl = config.ssl;
+        this.rejectUnauthorized = config.rejectUnauthorized;
+        this.ca = (config.ca && config.ca.trim()) ? config.ca : undefined;
+
+        // Build the `ssl` option for pg.Pool. Returns false when SSL is off;
+        // otherwise the server certificate is validated by default and can only
+        // be disabled by an explicit opt-out. Closes the previous MITM hole
+        // where rejectUnauthorized was hard-coded to false.
+        this.getSslConfig = function() {
+            if (!this.ssl) return false;
+            const ssl = { rejectUnauthorized: this.rejectUnauthorized !== false };
+            if (this.ca) ssl.ca = this.ca;
+            return ssl;
+        };
     }
     RED.nodes.registerType('timescaledb-config', TimescaleDBConfigNode, {
         credentials: {
@@ -94,7 +107,7 @@ module.exports = function(RED) {
             database: node.configNode.database,
             user: node.configNode.user,
             password: node.configNode.password,
-            ssl: node.configNode.ssl ? { rejectUnauthorized: false } : false
+            ssl: node.configNode.getSslConfig()
         });
 
         node.on('input', async function(msg, send, done) {
