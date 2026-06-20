@@ -37,7 +37,8 @@
     "node": ">=16.0.0"
   },
   "scripts": {
-    "test": "node-red -u test",
+    "test": "node test/test.js",
+    "test:flow": "node-red -u test",
     "dev": "node-red -u ~/.node-red",
     "lint": "echo \"No linter configured yet\""
   },
