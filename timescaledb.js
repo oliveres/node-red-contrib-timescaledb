@@ -2,7 +2,7 @@
 
 module.exports = function(RED) {
     const { Pool } = require('pg');
-    const { resolveTimestamp, mergeTags, writeMeasurement } = require('./lib/timescale');
+    const { resolveTimestamp, mergeTags, writeMeasurements } = require('./lib/timescale');
 
     // Config node for DB connection. Owns a single shared connection pool that
     // is reused by every node referencing this configuration.
@@ -100,12 +100,10 @@ module.exports = function(RED) {
                 const unit = msg.unit !== undefined ? msg.unit : (node.unit !== undefined ? node.unit : null);
                 const time = resolveTimestamp(msg.timestamp, () => node.warn('Invalid msg.timestamp, using current time'));
 
-                for (const v of values) {
-                    await writeMeasurement(pool, {
-                        time, tags, measurement, field: v.field,
-                        value: v.value, unit, jsonb, schema: node.schema
-                    });
-                }
+                await writeMeasurements(pool, values.map(v => ({
+                    time, tags, measurement, field: v.field,
+                    value: v.value, unit, jsonb, schema: node.schema
+                })));
                 msg.result = { status: 'ok', inserted: values.length };
                 send(msg);
                 if (done) done();
