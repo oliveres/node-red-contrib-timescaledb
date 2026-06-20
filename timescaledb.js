@@ -2,7 +2,7 @@
 
 module.exports = function(RED) {
     const { Pool } = require('pg');
-    const { resolveTimestamp, writeMeasurement } = require('./lib/timescale');
+    const { resolveTimestamp, mergeTags, writeMeasurement } = require('./lib/timescale');
 
     // Config node for DB connection. Owns a single shared connection pool that
     // is reused by every node referencing this configuration.
@@ -76,19 +76,7 @@ module.exports = function(RED) {
         node.on('input', async function(msg, send, done) {
             try {
                 // Tags: node fixed tags (JSON string or object) merged with msg.tags
-                let tags = {};
-                if (typeof node.fixedTags === 'string') {
-                    try {
-                        tags = JSON.parse(node.fixedTags);
-                    } catch {
-                        node.warn('Invalid Fixed Tags JSON, ignoring');
-                    }
-                } else if (node.fixedTags && typeof node.fixedTags === 'object') {
-                    tags = { ...node.fixedTags };
-                }
-                if (msg.tags && typeof msg.tags === 'object') {
-                    tags = { ...tags, ...msg.tags };
-                }
+                const tags = mergeTags(node.fixedTags, msg.tags, () => node.warn('Invalid Fixed Tags JSON, ignoring'));
 
                 const measurement = msg.measurement || node.measurement;
                 const field = msg.field || node.field;

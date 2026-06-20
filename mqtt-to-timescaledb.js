@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = function(RED) {
-    const { resolveTimestamp, writeMeasurement } = require('./lib/timescale');
+    const { resolveTimestamp, mergeTags, writeMeasurement } = require('./lib/timescale');
 
     // Mapping keys that map a topic level directly onto a known table column.
     const KNOWN_KEYS = ['org', 'name', 'location', 'building', 'area', 'floor', 'room', 'group', 'device', 'measurement', 'field'];
@@ -53,6 +53,12 @@ module.exports = function(RED) {
                             extraTags[mapKey] = topicVal;
                         }
                     }
+                } else if (node.ignoreTopic) {
+                    // Topic ignored: take tags from fixed/msg tags and the
+                    // measurement/field from the message instead of the topic.
+                    tags = mergeTags(node.fixedTags, msg.tags, () => node.warn('Invalid Fixed Tags JSON, ignoring'));
+                    measurement = msg.measurement;
+                    field = msg.field;
                 } else {
                     node.error('MQTT to TimescaleDB node requires msg.topic unless ignoreTopic is set.', msg);
                     msg.result = { status: 'error', error: 'No topic provided and ignoreTopic is false.' };
@@ -60,10 +66,11 @@ module.exports = function(RED) {
                     if (done) done();
                     return;
                 }
-                if (!measurement) throw new Error('Measurement is required (from topic mapping).');
+                const src = useTopic ? 'topic mapping' : 'msg';
+                if (!measurement) throw new Error(`Measurement is required (from ${src}).`);
                 // For JSON payloads the field comes from each object key, so a
-                // field from the topic is only required for naked payloads.
-                if (!field && node.payloadType === 'naked') throw new Error('Field is required for naked payload (from topic mapping).');
+                // field is only required for naked payloads.
+                if (!field && node.payloadType === 'naked') throw new Error(`Field is required for naked payload (from ${src}).`);
 
                 const values = [];
                 if (node.payloadType === 'naked') {
