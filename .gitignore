@@ -26,6 +26,11 @@ Thumbs.db
 # Build artifacts
 *.tgz
 
+# Secrets / credentials (never commit)
+.npmrc
+.env
+.env.*
+
 # Scratch / misc
 Untitled.canvas
 
