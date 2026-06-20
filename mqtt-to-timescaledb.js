@@ -10,7 +10,7 @@ module.exports = function(RED) {
         RED.nodes.createNode(this, config);
         const node = this;
         node.configNode = RED.nodes.getNode(config.server);
-        node.topicMapping = config.topicMapping || 'org/location/building/area/floor/room/group/device/measurement/field';
+        node.topicMapping = config.topicMapping || 'org/name/location/building/area/floor/room/group/device/measurement/field';
         node.ignoreTopic = config.ignoreTopic || false;
         node.unit = config.unit;
         node.fixedTags = config.fixedTags || {};
@@ -61,7 +61,9 @@ module.exports = function(RED) {
                     return;
                 }
                 if (!measurement) throw new Error('Measurement is required (from topic mapping).');
-                if (!field) throw new Error('Field is required (from topic mapping).');
+                // For JSON payloads the field comes from each object key, so a
+                // field from the topic is only required for naked payloads.
+                if (!field && node.payloadType === 'naked') throw new Error('Field is required for naked payload (from topic mapping).');
 
                 const values = [];
                 if (node.payloadType === 'naked') {
