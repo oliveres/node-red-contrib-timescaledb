@@ -33,8 +33,20 @@ Security and data-integrity release. Contains two breaking changes — see
   report an error and show a red status instead.
 - Invalid Fixed Tags JSON now produces a warning instead of being silently
   ignored.
+- `mqtt-to-timescaledb`: the **Ignore msg.topic** mode now works — it takes
+  tags from the fixed/`msg.tags` and the measurement/field from the message,
+  instead of erroring out. The fixed tags were previously never used.
+- `mqtt-to-timescaledb`: JSON payloads no longer require a `field` level in the
+  topic mapping (the field comes from each object key), matching the Payload
+  node.
+- `mqtt-to-timescaledb`: the runtime default topic mapping now matches the
+  editor default (it was missing the `name` level).
 
 ### Changed
+- All values of a single message are now written in one atomic multi-row
+  `INSERT` instead of one `INSERT` per value. A failure no longer leaves a JSON
+  payload partially written, and multi-field writes are faster (one round-trip
+  and one commit instead of N).
 - The PostgreSQL connection pool is now owned and shared by the config node and
   reused by all nodes, instead of one pool per node. A pool `error` handler was
   added so a dropped idle connection can no longer crash Node-RED.
