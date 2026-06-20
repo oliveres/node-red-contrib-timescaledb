@@ -1,57 +1,70 @@
 [
     {
-        "id": "inject1",
+        "id": "inject_mqtt_full",
         "type": "inject",
-        "name": "Topic mapping: all fixed fields (industrial)",
+        "name": "MQTT: full industrial mapping (naked)",
         "props": [
             { "p": "payload" },
             { "p": "topic" }
         ],
         "payload": "42.5",
         "payloadType": "num",
-        "topic": "NNSTEEL/FVE/Hall/Meters/Inverter1/Live/ActivePower",
-        "x": 200,
+        "topic": "ACME/Plant1/Hall/Inverter1/power/active",
+        "x": 240,
         "y": 80,
-        "wires": [["timescaledb1"]]
+        "wires": [["mqtt_naked"]]
     },
     {
-        "id": "inject2",
+        "id": "inject_mqtt_json",
         "type": "inject",
-        "name": "Topic mapping: custom keys + overflow",
+        "name": "MQTT: JSON payload (fields from keys)",
         "props": [
             { "p": "payload" },
             { "p": "topic" }
         ],
-        "payload": "100",
-        "payloadType": "num",
-        "topic": "A/B/C/D/E/F/G/H/I/J",
-        "x": 200,
+        "payload": "{\"temperature\":21.5,\"humidity\":55,\"active\":true,\"note\":\"ok\"}",
+        "payloadType": "json",
+        "topic": "Home/Prague/Flat/Thermo1/env",
+        "x": 240,
         "y": 140,
-        "wires": [["timescaledb2"]]
+        "wires": [["mqtt_json"]]
     },
     {
-        "id": "inject3",
+        "id": "inject_mqtt_ignore",
         "type": "inject",
-        "name": "No topic, tags in msg",
+        "name": "MQTT: ignore topic (tags/meas/field from msg)",
         "props": [
             { "p": "payload" },
-            { "p": "tags" },
             { "p": "measurement" },
-            { "p": "field" }
+            { "p": "field" },
+            { "p": "tags" }
         ],
-        "payload": "55.2",
+        "payload": "77",
         "payloadType": "num",
-        "tags": "{\"org\":\"ACME\",\"location\":\"Plant1\"}",
-        "measurement": "temperature",
-        "field": "value",
-        "x": 200,
+        "measurement": "status",
+        "field": "code",
+        "tags": "{\"org\":\"ACME\",\"device\":\"Pump1\"}",
+        "x": 240,
         "y": 200,
-        "wires": [["timescaledb3"]]
+        "wires": [["mqtt_ignore"]]
     },
     {
-        "id": "inject4",
+        "id": "inject_payload_naked",
         "type": "inject",
-        "name": "Unit and timestamp override",
+        "name": "Payload: naked, tags from node",
+        "props": [
+            { "p": "payload" }
+        ],
+        "payload": "23.5",
+        "payloadType": "num",
+        "x": 240,
+        "y": 280,
+        "wires": [["payload_naked"]]
+    },
+    {
+        "id": "inject_payload_override",
+        "type": "inject",
+        "name": "Payload: unit + timestamp override",
         "props": [
             { "p": "payload" },
             { "p": "unit" },
@@ -61,145 +74,105 @@
         "payloadType": "num",
         "unit": "kWh",
         "timestamp": "2025-05-19T10:00:00Z",
-        "x": 200,
-        "y": 260,
-        "wires": [["timescaledb3"]]
+        "x": 240,
+        "y": 340,
+        "wires": [["payload_override"]]
     },
     {
-        "id": "inject5",
-        "type": "inject",
-        "name": "Mapping in msg (overrides node)",
-        "props": [
-            { "p": "payload" },
-            { "p": "topic" },
-            { "p": "mapping" }
-        ],
-        "payload": "1",
-        "payloadType": "num",
-        "topic": "A/B/C/D/E/F",
-        "mapping": "org/location/building/area/device/field",
-        "x": 200,
-        "y": 320,
-        "wires": [["timescaledb3"]]
-    },
-    {
-        "id": "inject6",
-        "type": "inject",
-        "name": "JSON payload (multiple fields)",
-        "props": [
-            { "p": "payload" },
-            { "p": "topic" }
-        ],
-        "payload": "{\"temperature\": 21, \"humidity\": 55.2, \"active\": true, \"note\": \"ok\"}",
-        "payloadType": "json",
-        "topic": "Home/Prague/Flat/2ndFloor/Thermo1/Env/temperature",
-        "x": 200,
-        "y": 380,
-        "wires": [["timescaledb4"]]
-    },
-    {
-        "id": "inject7",
-        "type": "inject",
-        "name": "Ignore topic (use only fixed tags)",
-        "props": [
-            { "p": "payload" },
-            { "p": "topic" }
-        ],
-        "payload": "77",
-        "payloadType": "num",
-        "topic": "SHOULD/BE/IGNORED",
-        "x": 200,
-        "y": 440,
-        "wires": [["timescaledb5"]]
-    },
-    {
-        "id": "timescaledb1",
-        "type": "timescaledb",
-        "name": "Write (industrial, full mapping)",
+        "id": "mqtt_naked",
+        "type": "mqtt-to-timescaledb",
+        "name": "MQTT (industrial, full mapping)",
         "server": "config1",
-        "schema": "industrial",
-        "payloadType": "naked",
-        "measurement": "",
-        "field": "",
-        "fixedTags": "{}",
-        "topicMapping": "org/location/building/area/device/measurement/field",
+        "topicMapping": "org/location/building/device/measurement/field",
         "ignoreTopic": false,
-        "x": 600,
+        "payloadType": "naked",
+        "unit": "",
+        "fixedTags": "{}",
+        "schema": "industrial",
+        "x": 640,
         "y": 80,
-        "wires": [[]]
+        "wires": [["debug1"]]
     },
     {
-        "id": "timescaledb2",
-        "type": "timescaledb",
-        "name": "Write (custom mapping + overflow)",
+        "id": "mqtt_json",
+        "type": "mqtt-to-timescaledb",
+        "name": "MQTT (home, JSON payload)",
         "server": "config1",
-        "schema": "industrial",
-        "payloadType": "naked",
-        "measurement": "",
-        "field": "",
-        "fixedTags": "{}",
-        "topicMapping": "org/location/-/foo/device/-/bar/measurement/field",
+        "topicMapping": "name/location/building/device/measurement",
         "ignoreTopic": false,
-        "x": 600,
+        "payloadType": "json",
+        "unit": "",
+        "fixedTags": "{}",
+        "schema": "home",
+        "x": 640,
         "y": 140,
-        "wires": [[]]
+        "wires": [["debug1"]]
     },
     {
-        "id": "timescaledb3",
-        "type": "timescaledb",
-        "name": "Write (no topic, tags in msg)",
+        "id": "mqtt_ignore",
+        "type": "mqtt-to-timescaledb",
+        "name": "MQTT (ignore topic, fixed + msg tags)",
         "server": "config1",
+        "topicMapping": "org/name/location/building/area/floor/room/group/device/measurement/field",
+        "ignoreTopic": true,
+        "payloadType": "naked",
+        "unit": "",
+        "fixedTags": "{\"location\":\"Plant1\"}",
         "schema": "industrial",
+        "x": 640,
+        "y": 200,
+        "wires": [["debug1"]]
+    },
+    {
+        "id": "payload_naked",
+        "type": "timescaledb",
+        "name": "Payload (naked, fixed tags)",
+        "server": "config1",
         "payloadType": "naked",
         "measurement": "temperature",
         "field": "value",
+        "unit": "",
         "fixedTags": "{\"org\":\"ACME\",\"location\":\"Plant1\"}",
-        "topicMapping": "org/location/building/area/device/measurement/field",
-        "ignoreTopic": false,
-        "x": 600,
-        "y": 220,
-        "wires": [[]]
-    },
-    {
-        "id": "timescaledb4",
-        "type": "timescaledb",
-        "name": "Write (JSON payload)",
-        "server": "config1",
-        "schema": "home",
-        "payloadType": "json",
-        "measurement": "environment",
-        "field": "",
-        "fixedTags": "{\"name\":\"Home\",\"location\":\"Prague\",\"building\":\"Flat\",\"floor\":\"2ndFloor\",\"device\":\"Thermo1\"}",
-        "topicMapping": "name/location/building/floor/device/measurement/field",
-        "ignoreTopic": false,
-        "x": 600,
-        "y": 380,
-        "wires": [[]]
-    },
-    {
-        "id": "timescaledb5",
-        "type": "timescaledb",
-        "name": "Write (ignore topic)",
-        "server": "config1",
         "schema": "industrial",
+        "x": 640,
+        "y": 280,
+        "wires": [["debug1"]]
+    },
+    {
+        "id": "payload_override",
+        "type": "timescaledb",
+        "name": "Payload (unit + timestamp override)",
+        "server": "config1",
         "payloadType": "naked",
-        "measurement": "fixed_measurement",
-        "field": "fixed_field",
-        "fixedTags": "{\"org\":\"IGNORE\",\"location\":\"IGNORE\"}",
-        "topicMapping": "org/location/building/area/device/measurement/field",
-        "ignoreTopic": true,
-        "x": 600,
-        "y": 440,
-        "wires": [[]]
+        "measurement": "energy",
+        "field": "total",
+        "unit": "",
+        "fixedTags": "{\"org\":\"ACME\"}",
+        "schema": "industrial",
+        "x": 640,
+        "y": 340,
+        "wires": [["debug1"]]
+    },
+    {
+        "id": "debug1",
+        "type": "debug",
+        "name": "result",
+        "active": true,
+        "complete": "result",
+        "targetType": "msg",
+        "x": 1010,
+        "y": 200,
+        "wires": []
     },
     {
         "id": "config1",
         "type": "timescaledb-config",
+        "name": "TimescaleDB (test)",
         "host": "localhost",
         "port": 5432,
         "database": "testdb",
-        "user": "postgres",
-        "password": "postgres",
-        "ssl": false
+        "ssl": false,
+        "rejectUnauthorized": true,
+        "ca": ""
     }
-] 
+]
